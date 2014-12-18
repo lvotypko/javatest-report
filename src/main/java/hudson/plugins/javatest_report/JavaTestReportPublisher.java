@@ -36,11 +36,13 @@ import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Publisher;
 import hudson.tasks.Recorder;
 import hudson.tasks.test.TestResultProjectAction;
+import hudson.util.DirScanner;
 import hudson.util.IOException2;
 import org.apache.tools.ant.types.FileSet;
 import org.kohsuke.stapler.StaplerRequest;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collection;
@@ -126,6 +128,7 @@ public class JavaTestReportPublisher extends Recorder implements Serializable {
                         File src = new File(ws, file);
 
                         if(src.lastModified()<buildTime+(nowSlave-nowMaster)) {
+                            listener.getLogger().println("time " + (src.lastModified() - (buildTime+(nowSlave-nowMaster))));
                             listener.getLogger().println("Skipping "+src+" because it's not up to date");
                             continue;       // not up to date.
                         }
@@ -168,8 +171,9 @@ public class JavaTestReportPublisher extends Recorder implements Serializable {
         if (jtwork == null || jtwork.equals("")) {
             listener.getLogger().println("Set JavaTest Work directory for better reporting");
         } else {
-            owner.getWorkspace().child(jtwork).copyRecursiveTo("**/*",
-                new FilePath(owner.getArtifactsDir()).child("java-test-work"));
+            FilePath file =  owner.getWorkspace().child(jtwork);
+            //to save inodes and space, it is better to compress
+            file.zip(new FilePath(owner.getRootDir()).child("java-test-work.zip"));
         }
     }
 

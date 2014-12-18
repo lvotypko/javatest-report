@@ -1,12 +1,23 @@
 package hudson.plugins.javatest_report;
 
+import hudson.model.DirectoryBrowserSupport;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 
 import java.util.Collection;
+import java.util.Enumeration;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import javax.servlet.ServletException;
+import jenkins.util.VirtualFile;
+import org.kohsuke.stapler.Ancestor;
 
 /**
  * {@link TestObject} that is a collection of other {@link TestObject}s.
@@ -135,6 +146,24 @@ public abstract class TestCollection<
     	strs = set.toArray(strs);
     	return strs;
     	
+    }
+    
+    public void doLog(StaplerRequest req, StaplerResponse res) throws IOException, ServletException{
+        String name = req.getParameter("id");
+        ZipFile zipLogFile = new ZipFile(getOwner().getRootDir().getAbsolutePath() + "/java-test-work.zip");
+        File logFile = new File(getOwner().getRootDir().getAbsolutePath() + "/java-test-work.zip");
+        if(!logFile.exists()){
+            //try the old storage
+            logFile = new File(getOwner().getRootDir().getAbsolutePath() + "/archive/java-test-work/" + get(name).getStatusMessage());
+            res.serveFile(req, new FileInputStream(logFile), logFile.lastModified(), -1, logFile.length(), "plain.txt");
+            return;
+        }
+        JavaTestReportPublisher publisher = (JavaTestReportPublisher) getOwner().getProject().getPublishersList().get(JavaTestReportPublisher.class);
+        //need directory name since jtwork could contains not only name location but in case of whole workspace it could contains ., ./
+        //zip entry has accurate name so it does not work with ., ./ but only with exact name - 'workspace'
+        String directoryName = getOwner().getWorkspace().child(publisher.getJtwork()).getName();
+        ZipEntry entry = zipLogFile.getEntry(directoryName + "/" + get(name).getStatusMessage());
+        res.serveFile(req, zipLogFile.getInputStream(entry), entry.getTime(), -1, entry.getSize(), "plain.txt");
     }
     
     public Package getPackageTests(String packageName)
